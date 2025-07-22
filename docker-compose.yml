@@ -7,7 +7,7 @@ services:
     ports:
       - "5000:5000"
     env_file:
-      - ./notes-app-env-file
+      - notes-app-env-file
     restart: always
     depends_on:
       - mongo
@@ -18,11 +18,11 @@ services:
     ports:
       - "3000:80"
     env_file:
-      - ./notes-app-env-file
+      - notes-app-env-file
     restart: always
 
   mongo:
     image: mongo
     env_file:
-      - ./notes-app-env-file
+      - notes-app-env-file
     
