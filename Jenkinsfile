@@ -22,10 +22,7 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                         sh '''
-                            echo "$ENV_FILE" > notes-app-env-file
-                            echo "Environment file created successfully."'''
-                        sh "docker-compose -f docker-compose.yml --env-file ${ENV_FILE} build frontend"
+                        sh "docker-compose -f docker-compose.yml build frontend"
                     }
                 }
                 stage('Build_backend') {
@@ -33,10 +30,7 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh '''
-                            echo "$ENV_FILE" > notes-app-env-file
-                            echo "Environment file created successfully."'''
-                        sh "docker-compose -f docker-compose.yml --env-file ${ENV_FILE} build backend"
+                        sh "docker-compose -f docker-compose.yml build backend"
                     }
                 }
             }
