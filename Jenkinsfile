@@ -14,6 +14,7 @@ pipeline {
 
         stage('Build_stage') {
             environment {
+                RWD = "/app/notes-app"
                 // ENV_FILE = credentials("notes-app-env-file")
             }
             parallel {
