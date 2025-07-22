@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    image: notes-app-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./notes-app-env-file
+    restart: always
+    depends_on:
+      - mongo
+
+  frontend:
+    build: ./frontend
+    image: notes-app-frontend
+    ports:
+      - "3000:80"
+    env_file:
+      - ./notes-app-env-file
+    restart: always
+
+  mongo:
+    image: mongo
+    env_file:
+      - ./notes-app-env-file
+    
