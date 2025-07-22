@@ -22,6 +22,9 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
+                         sh '''
+                            echo "$ENV_FILE" > notes-app-env-file
+                            echo "Environment file created successfully."'''
                         sh "docker-compose -f docker-compose.yml --env-file ${ENV_FILE} build frontend"
                     }
                 }
@@ -30,6 +33,9 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
+                        sh '''
+                            echo "$ENV_FILE" > notes-app-env-file
+                            echo "Environment file created successfully."'''
                         sh "docker-compose -f docker-compose.yml --env-file ${ENV_FILE} build backend"
                     }
                 }
@@ -82,6 +88,7 @@ pipeline {
                 stage('Transfer_compose_file') {
                     steps {
                         sh "docker cp docker-compose.yml webserver:${RWD}/docker-compose.yml"
+                        sh "docker cp ${ENV_FILE} webserver:${RWD}/notes-app-env-file"
                     }
                 }
             }
