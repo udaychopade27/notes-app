@@ -6,8 +6,9 @@ services:
     image: notes-app-backend
     ports:
       - "5000:5000"
-    env_file:
-      - notes-app-env-file
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - PORT=${PORT}
     restart: always
     depends_on:
       - mongo
@@ -17,12 +18,16 @@ services:
     image: notes-app-frontend
     ports:
       - "3000:80"
-    env_file:
-      - notes-app-env-file
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
     restart: always
 
   mongo:
     image: mongo
-    env_file:
-      - notes-app-env-file
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE}
+    volumes:
+      - mongo_data:/data/db 
     
