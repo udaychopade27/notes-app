@@ -12,9 +12,6 @@ pipeline {
             }
         }
         stage('Build_stage'){
-            environment {
-               ENV_FILE = credentials("notes-app-env-file")
-            }
             parallel{
                 stage('Build_frontend'){
                     when{
@@ -95,7 +92,6 @@ pipeline {
                         }}        }
         stage('loading_images'){
             environment{
-                ENV_FILE = credentials("notes-app-env-file")
                 REMOTE_HOST = credentials("notes-app-remote-host")
                 REMOTE_USER = credentials("notes-app-remote-user")
                 PORT = credentials("notes-app-port")
@@ -126,21 +122,20 @@ pipeline {
         }
         stage('Deploying'){
             environment{
-                ENV_FILE = credentials("notes-app-env-file")
                 REMOTE_HOST = credentials("notes-app-remote-host")
                 REMOTE_USER = credentials("notes-app-remote-user")
                 PORT = credentials("notes-app-port")
                 RWD = "deployments/notes-app/"
             }
-            parallel{
+            withCredentials([file(credentialsId: 'notes-app-env-file', variable: 'ENV_FILE')]){
+            parallel{sss
                 stage('Deploy_frontend'){
                     when{
                         expression{params.build == 'Build_frontend'}
                     }
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && DEPLOY_ENV=${DEPLOY_ENV} docker compose -f docker-compose.yml -f ${DEPLOY_ENV}.yml -p pmt-${DEPLOY_ENV} down frontend'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file ${ENV_FILE} -p notes-app up -d frontend'"
                     }
                 }
                 }
@@ -150,8 +145,7 @@ pipeline {
                     }
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && DEPLOY_ENV=${DEPLOY_ENV} docker compose -f docker-compose.yml -f ${DEPLOY_ENV}.yml -p pmt-${DEPLOY_ENV} down backend'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml  --env-file ${ENV_FILE} -p notes-app up -d backend'"
                         }
                     }
                 }
@@ -161,16 +155,16 @@ pipeline {
                     }
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file ${ENV_FILE} -p notes-app down'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file ${ENV_FILE} -p notes-app up -d'"
                         }
                     }
                 }
+            }
             }        
         }
         stage('Restart Containers'){
             environment{
-                ENV_FILE = credentials("notes-app-env-file")
                 REMOTE_HOST = credentials("notes-app-remote-host")
                 REMOTE_USER = credentials("notes-app-remote-user")
                 PORT = credentials("notes-app-port")
@@ -182,9 +176,9 @@ pipeline {
                         expression{params.build == 'Restart_frontend'}
                     }
                     steps{
-                        sshagent(["pmt-${DEPLOY_ENV}-remote-server-ssh-creds"]){
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down frontend'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file ${ENV_FILE} -p notes-app down frontend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file ${ENV_FILE} -p notes-app up -d frontend'"
                     }
                 }
                 }
@@ -194,8 +188,8 @@ pipeline {
                     }
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down backend'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml  --env-file ${ENV_FILE} -p notes-app down backend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml  --env-file ${ENV_FILE} -p notes-app up -d backend'"
                         }
                     }
                 }
@@ -205,8 +199,8 @@ pipeline {
                     }
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml  --env-file ${ENV_FILE} -p notes-app down'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml  --env-file ${ENV_FILE} -p notes-app up -d'"
                         }
                     }
                 }
