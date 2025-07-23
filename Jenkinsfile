@@ -57,7 +57,6 @@ pipeline {
         }
         stage('Transfering_tar_file'){
             environment{
-                ENV_FILE = credentials("notes-app-env-file")
                 REMOTE_HOST = credentials("notes-app-remote-host")
                 REMOTE_USER = credentials("notes-app-remote-user")
                 PORT = credentials("notes-app-port")
@@ -86,15 +85,14 @@ pipeline {
                 }
                 stage('Transfer_compose_file'){
                     steps{
+                    withCredentials([file(credentialsId: 'notes-app-env-file', variable: 'ENV_FILE')]) {
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
                             sh "scp -P ${PORT} -r docker-compose.yml  ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
                             sh "scp -P ${PORT} -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
-                        }
                     }
                 }
             }
-        }
+                        }}        }
         stage('loading_images'){
             environment{
                 ENV_FILE = credentials("notes-app-env-file")
