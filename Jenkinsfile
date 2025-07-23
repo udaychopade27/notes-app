@@ -87,7 +87,7 @@ pipeline {
                 stage('Transfer_compose_file'){
                     steps{
                         sshagent(["notes-app-remote-server-ssh-creds"]){
-                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
+                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
                             sh "scp -P ${PORT} -r docker-compose.yml  ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
                             sh "scp -P ${PORT} -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
                         }
