@@ -1,55 +1,53 @@
 pipeline {
     agent any
-    parameters {
-        choice(choices: ['Build_all', 'Build_backend', 'Build_frontend', 'Restart_frontend', 'Restart_backend', 'Restart_all'], description: 'Build parameter choices', name: 'build')
+    parameters{
+        choice(choices:['Build_all','Build_backend','Build_frontend','Restart_frontend','Restart_backend','Restart_all'], description: 'Build parameter choices', name: 'build')
     }
     stages {
-        stage('Checkout') {
+        stage('Checkout'){
             steps {
                 sh "git --version"
                 sh "docker -v"
                 sh "echo Branch name: ${GIT_BRANCH}"
             }
         }
-
-        stage('Build_stage') {
+        stage('Build_stage'){
             environment {
-                RWD = "/app/notes-app"
-                // ENV_FILE = credentials("notes-app-env-file")
+               ENV_FILE = credentials("notes-app-env-file")
             }
-            parallel {
-                stage('Build_frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
+            parallel{
+                stage('Build_frontend'){
+                    when{
+                        expression{params.build == 'Build_frontend' || params.build == 'Build_all'}
                     }
-                    steps {
+                    steps{
                         sh "docker-compose -f docker-compose.yml build frontend"
+                        }
                     }
-                }
-                stage('Build_backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
+                stage('Build_backend'){
+                    when{
+                        expression{params.build == 'Build_backend' || params.build == 'Build_all'}
                     }
-                    steps {
-                        sh "docker-compose -f docker-compose.yml build backend"
+                    steps{
+                        sh "cp ${ENV_FILE} ."
+                        sh "docker-compose -f docker-compose.yml --env-file ${ENV_FILE} build backend"
                     }
                 }
             }
         }
-
-        stage('Saving_images') {
-            parallel {
-                stage('saving_frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
+        stage('Saving_images'){
+            parallel{
+                stage('saving_frontend'){
+                    when{
+                        expression{params.build == 'Build_frontend' || params.build == 'Build_all'}
                     }
                     steps {
                         sh "docker save notes-app-frontend -o frontend.tar"
                     }
                 }
-                stage('saving_backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
+                stage('saving_backend'){
+                    when{
+                        expression{params.build == 'Build_backend' || params.build == 'Build_all'}
                     }
                     steps {
                         sh "docker save notes-app-backend -o backend.tar"
@@ -57,135 +55,164 @@ pipeline {
                 }
             }
         }
-
-        stage('Transfering_tar_file') {
-            environment {
-                RWD = "/app/notes-app"
+        stage('Transfering_tar_file'){
+            environment{
+                ENV_FILE = credentials("notes-app-env-file")
+                REMOTE_HOST = credentials("notes-app-remote-host")
+                REMOTE_USER = credentials("notes-app-remote-user")
+                PORT = credentials("notes-app-port")
+                RWD = "deployments/notes-app/"
             }
-            parallel {
-                stage('Transfer_Frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
+            parallel{            
+                stage('Transfer_Frontend'){
+                    when{
+                        expression{params.build == 'Build_frontend' || params.build == 'Build_all'}
                     }
                     steps {
-                        sh "docker cp frontend.tar webserver:${RWD}/frontend.tar"
+                        sshagent(["notes-app-remote-server-ssh-creds"]) {
+                            sh "scp -P ${PORT} -r frontend.tar ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                        }
                     }
                 }
-                stage('Transfer_Backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
+                stage('Transfer_Backend'){
+                    when{
+                        expression{params.build == 'Build_backend' || params.build == 'Build_all'}
                     }
                     steps {
-                        sh "docker cp backend.tar webserver:${RWD}/backend.tar"
+                        sshagent(["notes-app-remote-server-ssh-creds"]) {
+                            sh "scp -P ${PORT} -r backend.tar ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                        }
                     }
                 }
-                stage('Transfer_compose_file') {
-                    steps {
-                    script {
-                    withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
-                        // Remove existing env file inside container if needed
-                        sh "docker exec webserver rm -f ${RWD}/notes-app-env-file"
-
-                        // Copy docker-compose files
-                        sh "docker cp docker-compose.yml webserver:${RWD}/docker-compose.yml"
-
-                        // Copy the env file securely using docker cp
-                        sh "docker cp ${ENV_FILE} webserver:${RWD}/notes-app-env-file"
-                }
-            }
-                    }
-        }
-            }}
-
-        stage('loading_images') {
-            environment {
-                RWD = "/app/notes-app"
-            }
-            parallel {
-                stage('loading_frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker load -i frontend.tar'"
-                    }
-                }
-                stage('loading_backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker load -i backend.tar'"
+                stage('Transfer_compose_file'){
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
+                            sh "scp -P ${PORT} -r docker-compose.yml  ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                            sh "scp -P ${PORT} -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                        }
                     }
                 }
             }
         }
-
-        stage('Deploying') {
-            environment {
-                RWD = "/app/notes-app"
+        stage('loading_images'){
+            environment{
+                ENV_FILE = credentials("notes-app-env-file")
+                REMOTE_HOST = credentials("notes-app-remote-host")
+                REMOTE_USER = credentials("notes-app-remote-user")
+                PORT = credentials("notes-app-port")
+                RWD = "deployments/notes-app/"
             }
-            parallel {
-                stage('Deploy_frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' }
+            parallel{
+                stage('loading_frontend'){
+                    when{
+                        expression{params.build == 'Build_frontend' || params.build == 'Build_all'}
                     }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
-                    }
-                }
-                stage('Deploy_backend') {
-                    when {
-                        expression { params.build == 'Build_backend' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker load -i frontend.tar'"
+                        }
                     }
                 }
-                stage('Deploy_all') {
-                    when {
-                        expression { params.build == 'Build_all' }
+                stage('loading_backend'){
+                    when{
+                        expression{params.build == 'Build_backend' || params.build == 'Build_all'}
                     }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker load -i backend.tar'"
+                        }
                     }
                 }
             }
         }
-
-        stage('Restart Containers') {
-            environment {
-                RWD = "/app/notes-app"
+        stage('Deploying'){
+            environment{
+                ENV_FILE = credentials("notes-app-env-file")
+                REMOTE_HOST = credentials("notes-app-remote-host")
+                REMOTE_USER = credentials("notes-app-remote-user")
+                PORT = credentials("notes-app-port")
+                RWD = "deployments/notes-app/"
             }
-            parallel {
-                stage('Restart_frontend') {
-                    when {
-                        expression { params.build == 'Restart_frontend' }
+            parallel{
+                stage('Deploy_frontend'){
+                    when{
+                        expression{params.build == 'Build_frontend'}
                     }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down frontend'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
-                    }
-                }
-                stage('Restart_backend') {
-                    when {
-                        expression { params.build == 'Restart_backend' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down backend'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && DEPLOY_ENV=${DEPLOY_ENV} docker compose -f docker-compose.yml -f ${DEPLOY_ENV}.yml -p pmt-${DEPLOY_ENV} down frontend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
                     }
                 }
-                stage('Restart_all') {
-                    when {
-                        expression { params.build == 'Restart_all' }
+                }
+                stage('Deploy_backend'){
+                    when{
+                        expression{params.build == 'Build_backend'}
                     }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            // sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && DEPLOY_ENV=${DEPLOY_ENV} docker compose -f docker-compose.yml -f ${DEPLOY_ENV}.yml -p pmt-${DEPLOY_ENV} down backend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
+                        }
                     }
                 }
+                stage('Deploy_all'){
+                    when{
+                        expression{params.build == 'Build_all'}
+                    }
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                        }
+                    }
+                }
+            }        
+        }
+        stage('Restart Containers'){
+            environment{
+                ENV_FILE = credentials("notes-app-env-file")
+                REMOTE_HOST = credentials("notes-app-remote-host")
+                REMOTE_USER = credentials("notes-app-remote-user")
+                PORT = credentials("notes-app-port")
+                RWD = "deployments/notes-app/"
             }
+            parallel{
+                stage('Restart_frontend'){
+                    when{
+                        expression{params.build == 'Restart_frontend'}
+                    }
+                    steps{
+                        sshagent(["pmt-${DEPLOY_ENV}-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down frontend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
+                    }
+                }
+                }
+                stage('Restart_backend'){
+                    when{
+                        expression{params.build == 'Restart_backend'}
+                    }
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down backend'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
+                        }
+                    }
+                }
+                stage('Restart_all'){
+                    when{
+                        expression{params.build == 'Restart_all'}
+                    }
+                    steps{
+                        sshagent(["notes-app-remote-server-ssh-creds"]){
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
+                            sh "ssh -p ${PORT} ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                        }
+                    }
+                }
+            }        
         }
     }
 }
