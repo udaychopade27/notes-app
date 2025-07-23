@@ -128,7 +128,7 @@ pipeline {
                 RWD = "deployments/notes-app/"
             }
             withCredentials([file(credentialsId: 'notes-app-env-file', variable: 'ENV_FILE')]){
-            parallel{sss
+            parallel{
                 stage('Deploy_frontend'){
                     when{
                         expression{params.build == 'Build_frontend'}
