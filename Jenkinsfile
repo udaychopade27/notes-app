@@ -107,7 +107,7 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker load -i frontend.tar'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker load -i frontend.tar'"
                     }
                 }
                 stage('loading_backend') {
@@ -115,7 +115,7 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker load -i backend.tar'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker load -i backend.tar'"
                     }
                 }
             }
@@ -131,7 +131,7 @@ pipeline {
                         expression { params.build == 'Build_frontend' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
                     }
                 }
                 stage('Deploy_backend') {
@@ -139,7 +139,7 @@ pipeline {
                         expression { params.build == 'Build_backend' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
                     }
                 }
                 stage('Deploy_all') {
@@ -147,7 +147,7 @@ pipeline {
                         expression { params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
                     }
                 }
             }
@@ -163,8 +163,8 @@ pipeline {
                         expression { params.build == 'Restart_frontend' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down frontend'"
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down frontend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
                     }
                 }
                 stage('Restart_backend') {
@@ -172,8 +172,8 @@ pipeline {
                         expression { params.build == 'Restart_backend' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down backend'"
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down backend'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
                     }
                 }
                 stage('Restart_all') {
@@ -181,8 +181,8 @@ pipeline {
                         expression { params.build == 'Restart_all' }
                     }
                     steps {
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
-                        sh "docker exec -it webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
+                        sh "docker exec webserver bash -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
                     }
                 }
             }
