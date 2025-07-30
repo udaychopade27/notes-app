@@ -1,8 +1,20 @@
 pipeline {
     agent any
+
     parameters {
-        choice(choices: ['Build_all', 'Build_backend', 'Build_frontend', 'Restart_frontend', 'Restart_backend', 'Restart_all'], description: 'Build parameter choices', name: 'build')
+        choice(
+            name: 'build',
+            choices: ['Build_all', 'Build_backend', 'Build_frontend', 'Restart_frontend', 'Restart_backend', 'Restart_all'],
+            description: 'Build parameter choices'
+        )
     }
+
+    environment {
+        REMOTE_DIR = "/app/notes-app"
+        LOCAL_DIR = "/home/ec2-user/notes-app"
+        COMPOSE_CMD = "cd ${REMOTE_DIR} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app"
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -13,10 +25,6 @@ pipeline {
         }
 
         stage('Build_stage') {
-            environment {
-                RWD = "/app/notes-app"
-                // ENV_FILE = credentials("notes-app-env-file")
-            }
             parallel {
                 stage('Build_frontend') {
                     when {
@@ -37,101 +45,70 @@ pipeline {
             }
         }
 
-        stage('Saving_images') {
+        stage('Push_to_DockerHub') {
             parallel {
-                stage('saving_frontend') {
+                stage('push_frontend') {
                     when {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker save notes-app-frontend -o frontend.tar"
+                        script {
+                            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                                docker.image('uday27/notes-app-frontend').push('v1.0')
+                            }
+                        }
                     }
                 }
-                stage('saving_backend') {
+                stage('push_backend') {
                     when {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker save notes-app-backend -o backend.tar"
+                        script {
+                            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                                docker.image('uday27/notes-app-backend').push('v1.0')
+                            }
+                        }
                     }
                 }
             }
         }
 
-        stage('Transfering_tar_file') {
-            environment {
-                RWD = "/app/notes-app"
-            }
-            parallel {
-                stage('Transfer_Frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker cp frontend.tar webserver:${RWD}/frontend.tar"
-                    }
-                }
-                stage('Transfer_Backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker cp backend.tar webserver:${RWD}/backend.tar"
-                    }
-                }
-                stage('Transfer_compose_file') {
-                    steps {
-                    script {
-                    withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
-                        // Remove existing env file inside container if needed
-                        sh "docker exec webserver rm -f ${RWD}/notes-app-env-file"
-
-                        // Copy docker-compose files
-                        sh "docker cp docker-compose.yml webserver:${RWD}/docker-compose.yml"
-
-                        // Copy the env file securely using docker cp
-                        sh "docker cp ${ENV_FILE} webserver:${RWD}/notes-app-env-file"
-                }
-            }
-                    }
-        }
-            }}
-
-        stage('loading_images') {
-            environment {
-                RWD = "/app/notes-app"
-            }
-            parallel {
-                stage('loading_frontend') {
-                    when {
-                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker load -i frontend.tar'"
-                    }
-                }
-                stage('loading_backend') {
-                    when {
-                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
-                    }
-                    steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker load -i backend.tar'"
+        stage('Transfering_files_to_EC2') {
+            steps {
+                script {
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ec2-ssh-key',
+                        keyFileVariable: 'SSH_KEY',
+                        usernameVariable: 'SSH_USER',
+                        hostVariable: 'SSH_HOST'
+                    )]) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_USER@$SSH_HOST "mkdir -p ${LOCAL_DIR}"
+                            scp -o StrictHostKeyChecking=no -i $SSH_KEY docker-compose.yml $SSH_USER@$SSH_HOST:${LOCAL_DIR}/docker-compose.yml
+                        """
+                        withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
+                            sh """
+                                scp -o StrictHostKeyChecking=no -i $SSH_KEY $ENV_FILE $SSH_USER@$SSH_HOST:${LOCAL_DIR}/notes-app-env-file
+                            """
+                        }
                     }
                 }
             }
         }
 
         stage('Deploying') {
-            environment {
-                RWD = "/app/notes-app"
-            }
             parallel {
                 stage('Deploy_frontend') {
                     when {
                         expression { params.build == 'Build_frontend' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull frontend && ${COMPOSE_CMD} up -d frontend'
+                            """
+                        }
                     }
                 }
                 stage('Deploy_backend') {
@@ -139,7 +116,11 @@ pipeline {
                         expression { params.build == 'Build_backend' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull backend && ${COMPOSE_CMD} up -d backend'
+                            """
+                        }
                     }
                 }
                 stage('Deploy_all') {
@@ -147,42 +128,54 @@ pipeline {
                         expression { params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull && ${COMPOSE_CMD} up -d'
+                            """
+                        }
                     }
                 }
             }
         }
 
         stage('Restart Containers') {
-            environment {
-                RWD = "/app/notes-app"
-            }
             parallel {
                 stage('Restart_frontend') {
                     when {
                         expression { params.build == 'Restart_frontend' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down frontend'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop frontend && ${COMPOSE_CMD} up -d frontend'
+                            """
+                        }
                     }
                 }
+
                 stage('Restart_backend') {
                     when {
                         expression { params.build == 'Restart_backend' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down backend'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop backend && ${COMPOSE_CMD} up -d backend'
+                            """
+                        }
                     }
                 }
+
                 stage('Restart_all') {
                     when {
                         expression { params.build == 'Restart_all' }
                     }
                     steps {
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
-                        sh "docker exec webserver sh -c 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} down && ${COMPOSE_CMD} up -d'
+                            """
+                        }
                     }
                 }
             }

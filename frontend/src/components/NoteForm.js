@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+/* The line `const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/notes';` is
+setting the API URL for the application. */
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/notes';
 function NoteForm({ fetchNotes, editingNote, setEditingNote }) {
   const [title, setTitle] = useState('');
