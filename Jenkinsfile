@@ -10,9 +10,8 @@ pipeline {
     }
 
     environment {
-        REMOTE_DIR = "/app/notes-app"
         LOCAL_DIR = "/home/ubuntu/notes-app"
-        COMPOSE_CMD = "cd ${REMOTE_DIR} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app"
+        COMPOSE_CMD = "cd ${LOCAL_DIR} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app"
     }
 
     stages {
@@ -20,7 +19,7 @@ pipeline {
             steps {
                 sh "git --version"
                 sh "docker -v"
-                sh "echo Branch name: ${GIT_BRANCH}"
+                sh "echo Branch name: ${env.BRANCH_NAME}"
             }
         }
 
@@ -32,6 +31,7 @@ pipeline {
                     }
                     steps {
                         sh "docker-compose -f docker-compose.yml build frontend"
+                        sh "docker tag notes-app-frontend uday27/notes-app-frontend:v1.0"
                     }
                 }
                 stage('Build_backend') {
@@ -40,6 +40,7 @@ pipeline {
                     }
                     steps {
                         sh "docker-compose -f docker-compose.yml build backend"
+                        sh "docker tag notes-app-backend uday27/notes-app-backend:v1.0"
                     }
                 }
             }
@@ -75,23 +76,23 @@ pipeline {
         }
 
         stage('Transfering_files_to_EC2') {
+            when {
+                expression { return ['Build_all', 'Build_backend', 'Build_frontend'].contains(params.build) }
+            }
             steps {
-                script {
-                    withCredentials([sshUserPrivateKey(
-                        credentialsId: 'ec2-ssh-key',
-                        keyFileVariable: 'SSH_KEY',
-                        usernameVariable: 'SSH_USER',
-                        hostVariable: 'SSH_HOST'
-                    )]) {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
+                    string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                    string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                ]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_USER@$SSH_HOST "mkdir -p ${LOCAL_DIR}"
+                        scp -o StrictHostKeyChecking=no -i $SSH_KEY docker-compose.yml $SSH_USER@$SSH_HOST:${LOCAL_DIR}/docker-compose.yml
+                    """
+                    withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
                         sh """
-                            ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_USER@$SSH_HOST "mkdir -p ${LOCAL_DIR}"
-                            scp -o StrictHostKeyChecking=no -i $SSH_KEY docker-compose.yml $SSH_USER@$SSH_HOST:${LOCAL_DIR}/docker-compose.yml
+                            scp -o StrictHostKeyChecking=no -i $SSH_KEY $ENV_FILE $SSH_USER@$SSH_HOST:${LOCAL_DIR}/notes-app-env-file
                         """
-                        withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
-                            sh """
-                                scp -o StrictHostKeyChecking=no -i $SSH_KEY $ENV_FILE $SSH_USER@$SSH_HOST:${LOCAL_DIR}/notes-app-env-file
-                            """
-                        }
                     }
                 }
             }
@@ -104,34 +105,51 @@ pipeline {
                         expression { params.build == 'Build_frontend' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull frontend && ${COMPOSE_CMD} up -d frontend'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull frontend && ${COMPOSE_CMD} up -d frontend'
+                                """
+                            }
                         }
                     }
                 }
+
                 stage('Deploy_backend') {
                     when {
                         expression { params.build == 'Build_backend' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull backend && ${COMPOSE_CMD} up -d backend'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull backend && ${COMPOSE_CMD} up -d backend'
+                                """
+                            }
                         }
                     }
                 }
+
                 stage('Deploy_all') {
                     when {
                         expression { params.build == 'Build_all' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull && ${COMPOSE_CMD} up -d'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull && ${COMPOSE_CMD} up -d'
+                                """
+                            }
                         }
                     }
                 }
@@ -145,10 +163,15 @@ pipeline {
                         expression { params.build == 'Restart_frontend' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop frontend && ${COMPOSE_CMD} up -d frontend'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop frontend && ${COMPOSE_CMD} up -d frontend'
+                                """
+                            }
                         }
                     }
                 }
@@ -158,10 +181,15 @@ pipeline {
                         expression { params.build == 'Restart_backend' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop backend && ${COMPOSE_CMD} up -d backend'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop backend && ${COMPOSE_CMD} up -d backend'
+                                """
+                            }
                         }
                     }
                 }
@@ -171,14 +199,25 @@ pipeline {
                         expression { params.build == 'Restart_all' }
                     }
                     steps {
-                        sshagent(['ec2-ssh-key']) {
-                            sh """
-                                ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} down && ${COMPOSE_CMD} up -d'
-                            """
+                        withCredentials([
+                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
+                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
+                        ]) {
+                            sshagent(['ec2-ssh-key']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} down && ${COMPOSE_CMD} up -d'
+                                """
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
