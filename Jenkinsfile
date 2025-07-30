@@ -11,7 +11,7 @@ pipeline {
 
     environment {
         REMOTE_DIR = "/app/notes-app"
-        LOCAL_DIR = "/home/ec2-user/notes-app"
+        LOCAL_DIR = "/home/ubuntu/notes-app"
         COMPOSE_CMD = "cd ${REMOTE_DIR} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app"
     }
 
