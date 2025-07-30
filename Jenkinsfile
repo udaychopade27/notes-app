@@ -55,7 +55,7 @@ pipeline {
                     steps {
                         script {
                             docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                                docker.image('uday27/notes-app-frontend').push('v1.0')
+                                docker.image('uday27/notes-app-frontend:v1.0').push()
                             }
                         }
                     }
@@ -67,7 +67,7 @@ pipeline {
                     steps {
                         script {
                             docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                                docker.image('uday27/notes-app-backend').push('v1.0')
+                                docker.image('uday27/notes-app-backend:v1.0').push()
                             }
                         }
                     }
