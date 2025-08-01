@@ -18,10 +18,10 @@ function NoteForm({ fetchNotes, editingNote, setEditingNote }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (editingNote) {
-      await axios.put(`${API_URL}/${editingNote._id}`, { title, content });
+      await axios.put(`${API_URL}/notes/${editingNote._id}`, { title, content });
       setEditingNote(null);
     } else {
-      await axios.post(`${API_URL}`, { title, content });
+      await axios.post(`${API_URL}/notes`, { title, content });
     }
     setTitle('');
     setContent('');
