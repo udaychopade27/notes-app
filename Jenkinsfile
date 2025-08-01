@@ -86,11 +86,14 @@ pipeline {
         stage('Transfering_tar_file') {
             steps {
                 sshagent(["ec2-ssh-key"]) {
-                    sh "mkdir -p ${RWD}"
-                    sh "scp -r docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
-                    sh "scp -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                    sh '''
+                        REMOTE_DIR="~/app/notes-app"
+                        ssh $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR"
+                        scp docker-compose.yml $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
+                        scp ${ENV_FILE} $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
+                    '''
+                    }
                 }
-            }
         }
 
         stage('loading_images') {
