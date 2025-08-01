@@ -32,7 +32,7 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build frontend"
+                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build --no-cache frontend"
                     }
                 }
 
@@ -41,7 +41,7 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build backend"
+                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build --no-cache backend"
                     } 
                 }
             }
