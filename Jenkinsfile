@@ -32,7 +32,7 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml build frontend"
+                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build frontend"
                     }
                 }
 
@@ -41,8 +41,8 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml build backend"
-                    }
+                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build backend"
+                    } 
                 }
             }
         }
@@ -129,7 +129,7 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d frontend'"
                         }
                     }
                 }
@@ -140,7 +140,7 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d backend'"
                         }
                     }
                 }
@@ -151,8 +151,8 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
                         }
                     }
                 }
@@ -167,7 +167,7 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app restart frontend'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app restart frontend'"
                         }
                     }
                 }
@@ -178,7 +178,7 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app restart backend'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app restart backend'"
                         }
                     }
                 }
@@ -189,8 +189,8 @@ pipeline {
                     }
                     steps {
                         sshagent(["ec2-ssh-key"]) {
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
-                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app down'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app up -d'"
                         }
                     }
                 }
