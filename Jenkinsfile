@@ -57,7 +57,6 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
                             sh """
                                 echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-                                docker tag notes-app-frontend uday27/notes-app-frontend:v1.0
                                 docker push uday27/notes-app-frontend:v1.0
                                 docker logout
                             """
@@ -73,7 +72,6 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
                             sh """
                                 echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-                                docker tag notes-app-backend uday27/notes-app-backend:v1.0
                                 docker push uday27/notes-app-backend:v1.0
                                 docker logout
                             """
