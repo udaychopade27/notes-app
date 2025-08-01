@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    image: notes-app-backend:v1.0
+    image: uday27/notes-app-backend:v1.0
     ports:
       - "5000:5000"
     environment:
@@ -13,7 +13,7 @@ services:
       - mongo
 
   frontend:
-    image: notes-app-frontend:v1.0
+    image: uday27/notes-app-frontend:v1.0
     ports:
       - "3000:80"
     environment:
