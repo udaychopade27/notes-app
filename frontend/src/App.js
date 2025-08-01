@@ -9,7 +9,7 @@ function App() {
   const [editingNote, setEditingNote] = useState(null);
 
   const fetchNotes = async () => {
-    const res = await axios.get(`${process.env.REACT_APP_API_URL}`);
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/notes`);
     setNotes(res.data);
   };
 
