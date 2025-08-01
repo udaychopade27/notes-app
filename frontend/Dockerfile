@@ -4,6 +4,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# 👇 Accept build argument
+ARG REACT_APP_API_URL
+# 👇 Define it as an environment variable for build tools like React
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN echo "Building with API: $REACT_APP_API_URL"
 RUN npm run build
 
