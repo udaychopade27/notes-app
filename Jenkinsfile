@@ -3,15 +3,17 @@ pipeline {
 
     parameters {
         choice(
-            name: 'build',
             choices: ['Build_all', 'Build_backend', 'Build_frontend', 'Restart_frontend', 'Restart_backend', 'Restart_all'],
-            description: 'Build parameter choices'
+            description: 'Build parameter choices',
+            name: 'build'
         )
     }
 
     environment {
-        LOCAL_DIR = "/home/ubuntu/notes-app"
-        COMPOSE_CMD = "cd ${LOCAL_DIR} && docker-compose -f docker-compose.yml --env-file notes-app-env-file -p notes-app"
+        ENV_FILE = credentials("notes-app-env-file")
+        REMOTE_HOST = credentials("ec2-ssh-host")
+        REMOTE_USER = credentials("ec2-ssh-user")
+        RWD = "/ubuntu/app/notes-app"
     }
 
     stages {
@@ -19,7 +21,7 @@ pipeline {
             steps {
                 sh "git --version"
                 sh "docker -v"
-                sh "echo Branch name: ${env.BRANCH_NAME}"
+                sh "echo Branch name: ${GIT_BRANCH}"
             }
         }
 
@@ -31,68 +33,87 @@ pipeline {
                     }
                     steps {
                         sh "docker-compose -f docker-compose.yml build frontend"
-                        sh "docker tag notes-app-frontend uday27/notes-app-frontend:v1.0"
                     }
                 }
+
                 stage('Build_backend') {
                     when {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
                         sh "docker-compose -f docker-compose.yml build backend"
-                        sh "docker tag notes-app-backend uday27/notes-app-backend:v1.0"
                     }
                 }
             }
         }
 
-        stage('Push_to_DockerHub') {
+        stage('push_images_to_dockerhub') {
             parallel {
-                stage('push_frontend') {
+                stage('saving_frontend') {
                     when {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        script {
-                            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                                docker.image('uday27/notes-app-frontend:v1.0').push()
-                            }
+                        withCredentials([usernamePassword(credentialsId: 'dockerbub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                            sh """
+                                echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+                                docker tag notes-app-frontend uday27/notes-app-frontend:v1.0
+                                docker push uday27/notes-app-frontend:v1.0
+                                docker logout
+                            """
                         }
                     }
                 }
-                stage('push_backend') {
+
+                stage('saving_backend') {
                     when {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        script {
-                            docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                                docker.image('uday27/notes-app-backend:v1.0').push()
-                            }
+                        withCredentials([usernamePassword(credentialsId: 'dockerbub-creds', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+                            sh """
+                                echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+                                docker tag notes-app-backend uday27/notes-app-backend:v1.0
+                                docker push uday27/notes-app-backend:v1.0
+                                docker logout
+                            """
                         }
                     }
                 }
             }
         }
 
-        stage('Transfering_files_to_EC2') {
-            when {
-                expression { return ['Build_all', 'Build_backend', 'Build_frontend'].contains(params.build) }
-            }
+        stage('Transfering_tar_file') {
             steps {
-                withCredentials([
-                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY'),
-                    string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                    string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                ]) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_USER@$SSH_HOST "mkdir -p ${LOCAL_DIR}"
-                        scp -o StrictHostKeyChecking=no -i $SSH_KEY docker-compose.yml $SSH_USER@$SSH_HOST:${LOCAL_DIR}/docker-compose.yml
-                    """
-                    withCredentials([file(credentialsId: "notes-app-env-file", variable: 'ENV_FILE')]) {
-                        sh """
-                            scp -o StrictHostKeyChecking=no -i $SSH_KEY $ENV_FILE $SSH_USER@$SSH_HOST:${LOCAL_DIR}/notes-app-env-file
-                        """
+                sshagent(["ec2-ssh-key"]) {
+                    sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
+                    sh "scp -r docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                    sh "scp -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
+                }
+            }
+        }
+
+        stage('loading_images') {
+            parallel {
+                stage('loading_frontend') {
+                    when {
+                        expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
+                    }
+                    steps {
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker pull uday27/notes-app-frontend:v1.0'"
+                        }
+                    }
+                }
+
+                stage('loading_backend') {
+                    when {
+                        expression { params.build == 'Build_backend' || params.build == 'Build_all' }
+                    }
+                    steps {
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker pull uday27/notes-app-backend:v1.0'"
+                        }
                     }
                 }
             }
@@ -105,15 +126,8 @@ pipeline {
                         expression { params.build == 'Build_frontend' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull frontend && ${COMPOSE_CMD} up -d frontend'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d frontend'"
                         }
                     }
                 }
@@ -123,15 +137,8 @@ pipeline {
                         expression { params.build == 'Build_backend' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull backend && ${COMPOSE_CMD} up -d backend'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d backend'"
                         }
                     }
                 }
@@ -141,15 +148,9 @@ pipeline {
                         expression { params.build == 'Build_all' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} pull && ${COMPOSE_CMD} up -d'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
                         }
                     }
                 }
@@ -163,15 +164,8 @@ pipeline {
                         expression { params.build == 'Restart_frontend' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop frontend && ${COMPOSE_CMD} up -d frontend'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app restart frontend'"
                         }
                     }
                 }
@@ -181,15 +175,8 @@ pipeline {
                         expression { params.build == 'Restart_backend' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} stop backend && ${COMPOSE_CMD} up -d backend'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app restart backend'"
                         }
                     }
                 }
@@ -199,25 +186,13 @@ pipeline {
                         expression { params.build == 'Restart_all' }
                     }
                     steps {
-                        withCredentials([
-                            string(credentialsId: 'ec2-ssh-user', variable: 'SSH_USER'),
-                            string(credentialsId: 'ec2-ssh-host', variable: 'SSH_HOST')
-                        ]) {
-                            sshagent(['ec2-ssh-key']) {
-                                sh """
-                                    ssh -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST '${COMPOSE_CMD} down && ${COMPOSE_CMD} up -d'
-                                """
-                            }
+                        sshagent(["ec2-ssh-key"]) {
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app down'"
+                            sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'cd ${RWD} && docker-compose -f docker-compose.yml -p notes-app up -d'"
                         }
                     }
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            cleanWs()
         }
     }
 }
