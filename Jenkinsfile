@@ -32,7 +32,14 @@ pipeline {
                         expression { params.build == 'Build_frontend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build --no-cache frontend"
+                        script {
+                            withCredentials([file(credentialsId: 'notes-app-env', variable: 'ENV_FILE')]) {
+                                sh '''
+                                # Run docker-compose with env file passed at build time
+                                docker-compose --env-file $ENV_FILE -f docker-compose.yml -f docker/docker.yml build --no-cache frontend
+                           '''
+                            }
+                        }
                     }
                 }
 
@@ -41,8 +48,15 @@ pipeline {
                         expression { params.build == 'Build_backend' || params.build == 'Build_all' }
                     }
                     steps {
-                        sh "docker-compose -f docker-compose.yml -f docker/docker.yml build --no-cache backend"
-                    } 
+                        script {
+                            withCredentials([file(credentialsId: 'notes-app-env', variable: 'ENV_FILE')]) {
+                                sh '''
+                                # Run docker-compose with env file passed at build time
+                                docker-compose --env-file $ENV_FILE -f docker-compose.yml -f docker/docker.yml build --no-cache backend
+                                '''
+                            }
+                        }
+                    }
                 }
             }
         }
