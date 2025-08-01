@@ -2,9 +2,13 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
 
   frontend:
-    build: ./frontend
-    args:
-        - REACT_APP_API_URL=${REACT_APP_API_URL}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL}
