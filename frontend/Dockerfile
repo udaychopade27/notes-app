@@ -4,6 +4,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+RUN echo "Building with API: $REACT_APP_API_URL"
 RUN npm run build
 
 FROM nginx:alpine
