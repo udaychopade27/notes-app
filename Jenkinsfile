@@ -13,7 +13,7 @@ pipeline {
         ENV_FILE = credentials("notes-app-env-file")
         REMOTE_HOST = credentials("ec2-ssh-host")
         REMOTE_USER = credentials("ec2-ssh-user")
-        RWD = "/ubuntu/app/notes-app"
+        RWD = "/home/ubuntu/app/notes-app"
     }
 
     stages {
