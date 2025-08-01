@@ -33,7 +33,7 @@ pipeline {
                     }
                     steps {
                         script {
-                            withCredentials([file(credentialsId: 'notes-app-env', variable: 'ENV_FILE')]) {
+                            withCredentials([file(credentialsId: 'notes-app-env-file', variable: 'ENV_FILE')]) {
                                 sh '''
                                 # Run docker-compose with env file passed at build time
                                 docker-compose --env-file $ENV_FILE -f docker-compose.yml -f docker/docker.yml build --no-cache frontend
@@ -49,7 +49,7 @@ pipeline {
                     }
                     steps {
                         script {
-                            withCredentials([file(credentialsId: 'notes-app-env', variable: 'ENV_FILE')]) {
+                            withCredentials([file(credentialsId: 'notes-app-env-file', variable: 'ENV_FILE')]) {
                                 sh '''
                                 # Run docker-compose with env file passed at build time
                                 docker-compose --env-file $ENV_FILE -f docker-compose.yml -f docker/docker.yml build --no-cache backend
