@@ -86,7 +86,7 @@ pipeline {
         stage('Transfering_tar_file') {
             steps {
                 sshagent(["ec2-ssh-key"]) {
-                    sh "ssh ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'"
+                    sh "mkdir -p ${RWD}"
                     sh "scp -r docker-compose.yml ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
                     sh "scp -r ${ENV_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${RWD}/"
                 }
