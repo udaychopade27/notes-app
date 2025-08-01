@@ -87,6 +87,7 @@ pipeline {
             steps {
                 sshagent(["ec2-ssh-key"]) {
                     sh '''
+                        ssh ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${RWD}/notes-app-env-file'
                         scp docker-compose.yml $REMOTE_USER@$REMOTE_HOST:$RWD/
                         scp ${ENV_FILE} $REMOTE_USER@$REMOTE_HOST:$RWD/
                     '''
