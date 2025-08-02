@@ -1,52 +1,94 @@
+# 📝 Notes App – Three-Tier Application (Frontend + Backend + DB)
+### This is a **three-tier Notes App*** built using:
+---
 
-# Notes App
+**Frontend:** React + Axios
 
-## Description
+**Backend:** Node.js + Express
 
-Three-tier Notes application with:
+**Database:** MongoDB
 
-- **Backend:** Node.js + Express + MongoDB
-- **Frontend:** React + Axios
+### It is designed to demonstrate full-stack deployment and DevOps practices using Docker, Docker Compose, and CI/CD via Jenkins.
+---
 
-## Setup
+## 📁 Project Structure
 
-### Backend
-
-1. Navigate to backend folder:
-   ```
-   cd backend
-   npm install
-   npm run dev
-   ```
-
-2. Ensure MongoDB is running locally at mongodb://localhost:27017/notesapp
-
-### Frontend
-
-1. Navigate to frontend folder:
-   ```
-   cd frontend
-   npm install
-   npm start
-   ```
-
-## APIs
-
-- GET /api/notes
-- GET /api/notes/:id
-- POST /api/notes
-- PUT /api/notes/:id
-- DELETE /api/notes/:id
+## notes-app/
+```text .
+notes-app/
+├── frontend/        # React frontend
+├── backend/         # Node.js + Express backend
+├── docker-compose.yml
+└── Jenkinsfile      # Declarative Jenkins Pipeline
+```
 
 ---
 
-## Next Steps
+## 🚀 Local Setup
+### 🔧 Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-- Build React app and serve with Nginx for production
-- Add user authentication (future enhancement)
+#### Make sure MongoDB is running locally at mongodb://localhost:27017/notesapp
+
+### 💻 Frontend
+```bash
+cd frontend
+npm install
+npm start
+```
 
 ---
 
-## Author
+## 📦 Dockerized Setup (Recommended for Production)
+### Run everything using Docker Compose:
 
-Prepared for DevOps full-stack learning and portfolio.
+```bash
+docker-compose up --build -d
+```
+This will bring up:
+
+MongoDB
+Backend server
+Frontend React app
+
+---
+
+## 🔁 Jenkins CI/CD (via Jenkinsfile)
+The included Jenkinsfile automates:
+Git checkout
+Docker Compose build and deploy
+Can be triggered from Jenkins configured on the EC2 server (refer to infra repo).
+
+---
+
+## 📡 API Endpoints
+
+| Method | Endpoint         | Description             |
+| ------ | ---------------- | ----------------------- |
+| GET    | `/api/notes`     | Fetch all notes         |
+| GET    | `/api/notes/:id` | Fetch single note       |
+| POST   | `/api/notes`     | Create a new note       |
+| PUT    | `/api/notes/:id` | Update an existing note |
+| DELETE | `/api/notes/:id` | Delete a note           |
+
+---
+
+## 🔮 Next Steps / Enhancements
+Add user authentication & login
+Integrate monitoring and logging (Prometheus, ELK, etc.)
+Add HTTPS with Nginx reverse proxy
+Unit and integration tests
+
+---
+
+📬 **Contact**  
+Created by: **Uday Chopade**  
+📧 [LinkedIn](https://www.linkedin.com/in/udaychopade27) | 🗂️ [GitHub](https://github.com/udaychopade27)
+
+---
+
+🔗 Also check: [Infrastructure Repo](https://github.com/udaychopade27/devsecops-project.git)
