@@ -1,31 +1,33 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: notes-app-ingress
+  name: fullstack-ingress
+  namespace: notes-app
+
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+
 spec:
   ingressClassName: nginx
-  tls:
-    - hosts:
-        - www.udaychopade27.work.gd
-      secretName: notes-app-tls
+
   rules:
-    - host: www.udaychopade27.work.gd
+    - host: app.example.com
+
       http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 80
+
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: backend
+                name: backend-service
                 port:
                   number: 5000
+
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
