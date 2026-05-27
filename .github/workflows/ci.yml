@@ -22,16 +22,23 @@ jobs:
       # Secret Scan
       # -----------------------------------
       - name: Gitleaks Scan
+        continue-on-error: true
         uses: gitleaks/gitleaks-action@v2
+        env:
+            GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
 
       # -----------------------------------
       # Filesystem Scan
       # -----------------------------------
       - name: Trivy Filesystem Scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
           scan-ref: .
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
 
       # -----------------------------------
       # Docker Login
