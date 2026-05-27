@@ -22,7 +22,7 @@ spec:
           image: uday27/notes-app-frontend:latest
 
           ports:
-            - containerPort: 3000
+            - containerPort: 80
 
           env:
             - name: REACT_APP_API_URL
@@ -43,5 +43,5 @@ spec:
 
   ports:
     - port: 80
-      targetPort: 3000
+      targetPort: 80
       nodePort: 30000
