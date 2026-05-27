@@ -1,0 +1,228 @@
+name: CD-Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["CI-DevSecOps"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+
+  deploy:
+    name: 🚀 Deploy to KIND Cluster
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_TAG: ${{ github.event.workflow_run.run_number }}
+
+    steps:
+
+      # ----------------------------------------
+      # Checkout
+      # ----------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # Set Variables
+      # ----------------------------------------
+      - name: Set Deployment Variables
+        id: vars
+        run: |
+          echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------
+      # Install kubectl
+      # ----------------------------------------
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s \
+          https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      # ----------------------------------------
+      # Validate YAML Syntax
+      # ----------------------------------------
+      - name: Validate Kubernetes YAML
+        run: |
+          echo "Validating YAML manifests..."
+
+          for file in k8s/*.yml k8s/*.yaml; do
+            if [ -f "$file" ]; then
+              echo "Checking $file"
+
+              kubectl apply \
+                --dry-run=client \
+                -f "$file" > /dev/null
+            fi
+          done
+
+          echo "All manifests are valid"
+
+      # ----------------------------------------
+      # Replace Backend Image
+      # ----------------------------------------
+      - name: Replace Backend Image
+        run: |
+          sed -i \
+          "s|uday27/notes-app-backend:latest|${{ steps.vars.outputs.backend_image }}|g" \
+          k8s/backend.yml
+
+      # ----------------------------------------
+      # Replace Frontend Image
+      # ----------------------------------------
+      - name: Replace Frontend Image
+        run: |
+          sed -i \
+          "s|uday27/notes-app-frontend:latest|${{ steps.vars.outputs.frontend_image }}|g" \
+          k8s/frontend.yml
+
+      # ----------------------------------------
+      # Verify Updated Images
+      # ----------------------------------------
+      - name: Verify Updated Images
+        run: |
+          echo "Backend image:"
+          grep "image:" k8s/backend.yml
+
+          echo ""
+          echo "Frontend image:"
+          grep "image:" k8s/frontend.yml
+
+      # ----------------------------------------
+      # Configure SSH
+      # ----------------------------------------
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan -H \
+          ${{ secrets.EC2_HOST }} \
+          >> ~/.ssh/known_hosts
+
+      # ----------------------------------------
+      # Copy Files to EC2
+      # ----------------------------------------
+      - name: Copy Kubernetes Files
+        run: |
+          scp -r k8s \
+          ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USERNAME }}/
+
+      # ----------------------------------------
+      # Deploy to EC2
+      # ----------------------------------------
+      - name: Deploy to Kubernetes
+        run: |
+          ssh ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+            set -e
+
+            echo "=================================="
+            echo "Starting Kubernetes Deployment"
+            echo "=================================="
+
+            # ----------------------------------------
+            # Check Docker
+            # ----------------------------------------
+            if ! command -v docker &> /dev/null
+            then
+              echo "Docker is not installed"
+              exit 1
+            fi
+
+            # ----------------------------------------
+            # Check kubectl
+            # ----------------------------------------
+            if ! command -v kubectl &> /dev/null
+            then
+              echo "kubectl is not installed"
+              exit 1
+            fi
+
+            # ----------------------------------------
+            # Check KIND
+            # ----------------------------------------
+            if ! command -v kind &> /dev/null
+            then
+              echo "KIND is not installed"
+              exit 1
+            fi
+
+            # ----------------------------------------
+            # Check Cluster
+            # ----------------------------------------
+            kubectl cluster-info
+
+            kubectl get nodes
+
+            # ----------------------------------------
+            # Create Namespace
+            # ----------------------------------------
+            kubectl apply -f ~/k8s/namespace.yml
+
+            # ----------------------------------------
+            # Deploy Secrets
+            # ----------------------------------------
+            kubectl apply -f ~/k8s/secret.yml
+
+            # ----------------------------------------
+            # Deploy MongoDB
+            # ----------------------------------------
+            kubectl apply -f ~/k8s/mongo.yml
+
+            # ----------------------------------------
+            # Deploy Backend
+            # ----------------------------------------
+            kubectl apply -f ~/k8s/backend.yml
+
+            # ----------------------------------------
+            # Deploy Frontend
+            # ----------------------------------------
+            kubectl apply -f ~/k8s/frontend.yml
+
+            echo ""
+            echo "Waiting for deployments..."
+
+            kubectl rollout status deployment/backend \
+              -n fullstack-app \
+              --timeout=180s
+
+            kubectl rollout status deployment/frontend \
+              -n fullstack-app \
+              --timeout=180s
+
+            echo ""
+            echo "Deployment Successful"
+
+            kubectl get pods -n fullstack-app
+
+          EOF
+
+      # ----------------------------------------
+      # Deployment Summary
+      # ----------------------------------------
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Kubernetes Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend Image: \`${{ steps.vars.outputs.backend_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend Image: \`${{ steps.vars.outputs.frontend_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: Production" >> $GITHUB_STEP_SUMMARY
+          echo "- Cluster: KIND" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace: fullstack-app" >> $GITHUB_STEP_SUMMARY
