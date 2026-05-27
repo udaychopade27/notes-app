@@ -63,7 +63,7 @@ jobs:
       # -----------------------------------
       - name: Build Frontend Image
         run: |
-          docker build \
+          docker build --no-cache \
           -t ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${{ env.IMAGE_TAG }} \
           ./frontend
 
