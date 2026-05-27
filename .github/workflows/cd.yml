@@ -36,8 +36,8 @@ jobs:
       - name: Set Deployment Variables
         id: vars
         run: |
-          echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${IMAGE_TAG}" >> $GITHUB_OUTPUT
-          echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
           echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
 
       # ----------------------------------------

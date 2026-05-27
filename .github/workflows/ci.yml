@@ -55,7 +55,7 @@ jobs:
       - name: Build Backend Image
         run: |
           docker build \
-          -t ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${IMAGE_TAG} \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${{ env.IMAGE_TAG }} \
           ./backend
 
       # -----------------------------------
@@ -64,7 +64,7 @@ jobs:
       - name: Build Frontend Image
         run: |
           docker build \
-          -t ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${IMAGE_TAG} \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${{ env.IMAGE_TAG }} \
           ./frontend
 
       # -----------------------------------
@@ -73,7 +73,7 @@ jobs:
       - name: Scan Backend Image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${IMAGE_TAG}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${{ env.IMAGE_TAG }}
 
       # -----------------------------------
       # Scan Frontend Image
@@ -81,7 +81,7 @@ jobs:
       - name: Scan Frontend Image
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${IMAGE_TAG}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${{ env.IMAGE_TAG }}
 
       # -----------------------------------
       # Push Images
@@ -89,9 +89,9 @@ jobs:
       - name: Push Backend Image
         run: |
           docker push \
-          ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${IMAGE_TAG}
+          ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-backend:${{ env.IMAGE_TAG }}
 
       - name: Push Frontend Image
         run: |
           docker push \
-          ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${IMAGE_TAG}
+          ${{ secrets.DOCKERHUB_USERNAME }}/notes-app-frontend:${{ env.IMAGE_TAG }}
