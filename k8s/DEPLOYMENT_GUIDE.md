@@ -142,6 +142,7 @@ kubectl create secret generic app-secrets \
   --from-literal=MONGO_INITDB_ROOT_USERNAME=admin \
   --from-literal=MONGO_INITDB_ROOT_PASSWORD=password123 \
   --from-literal=MONGO_INITDB_DATABASE=notes \
+  --from-literal=MONGO_URI='mongodb://admin:password123@mongo-service:27017/notes?authSource=admin' \
   -n notes-app
 ```
 
