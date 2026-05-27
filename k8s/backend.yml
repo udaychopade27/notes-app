@@ -29,7 +29,10 @@ spec:
               value: "5000"
 
             - name: MONGO_URI
-              value: mongodb://mongo-service:27017/notes
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MONGO_URI
 
 ---
 apiVersion: v1
