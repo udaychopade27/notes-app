@@ -86,9 +86,9 @@ Kubernetes Secrets require Base64 encoded values.
 ## Example
 
 ```bash
-echo -n 'admin' | base64
-echo -n 'password123' | base64
-echo -n 'mydatabase' | base64
+echo -n 'username' | base64
+echo -n 'change-password' | base64
+echo -n 'your-database-name' | base64
 ```
 
 Example output:
@@ -115,9 +115,9 @@ metadata:
 type: Opaque
 
 data:
-  MONGO_INITDB_ROOT_USERNAME: YWRtaW4=
-  MONGO_INITDB_ROOT_PASSWORD: cGFzc3dvcmQxMjM=
-  MONGO_INITDB_DATABASE: bXlkYXRhYmFzZQ==
+  MONGO_INITDB_ROOT_USERNAME: 
+  MONGO_INITDB_ROOT_PASSWORD:
+  MONGO_INITDB_DATABASE: 
 ```
 
 Apply secret:
@@ -125,6 +125,48 @@ Apply secret:
 ```bash
 kubectl apply -f secret.yml
 ```
+
+---
+## 🔐 Secure Kubernetes Secret Management
+
+For security best practices, avoid committing Kubernetes secrets directly into the Git repository.
+
+Instead of storing sensitive credentials in `secret.yml`, create secrets manually on the Kubernetes cluster.
+
+### Create Kubernetes Secret
+
+Run the following command on the EC2 server:
+
+```bash
+kubectl create secret generic app-secrets \
+  --from-literal=MONGO_INITDB_ROOT_USERNAME=admin \
+  --from-literal=MONGO_INITDB_ROOT_PASSWORD=password123 \
+  --from-literal=MONGO_INITDB_DATABASE=notes \
+  -n notes-app
+```
+
+### Verify Secret
+
+```bash
+kubectl get secrets -n notes-app
+```
+
+### View Secret Details
+
+```bash
+kubectl describe secret app-secrets -n notes-app
+```
+
+> ⚠️ Never commit real passwords, tokens, or secrets to GitHub repositories.
+>
+> Recommended approaches for production:
+>
+> - GitHub Secrets
+> - HashiCorp Vault
+> - Kubernetes External Secrets
+> - Sealed Secrets
+> - AWS Secrets Manager
+---
 
 Verify:
 
