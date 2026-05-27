@@ -173,17 +173,17 @@ jobs:
             echo "Waiting for deployments..."
 
             kubectl rollout status deployment/backend \
-              -n fullstack-app \
+              -n notes-app \
               --timeout=180s
 
             kubectl rollout status deployment/frontend \
-              -n fullstack-app \
+              -n notes-app \
               --timeout=180s
 
             echo ""
             echo "Deployment Successful"
 
-            kubectl get pods -n fullstack-app
+            kubectl get pods -n notes-app
 
           EOF
 
@@ -199,4 +199,4 @@ jobs:
           echo "- Frontend Image: \`${{ steps.vars.outputs.frontend_image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Environment: Production" >> $GITHUB_STEP_SUMMARY
           echo "- Cluster: KIND" >> $GITHUB_STEP_SUMMARY
-          echo "- Namespace: fullstack-app" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace: notes-app" >> $GITHUB_STEP_SUMMARY
