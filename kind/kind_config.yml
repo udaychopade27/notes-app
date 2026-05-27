@@ -1,14 +1,35 @@
-  kind: Cluster
-  apiVersion: kind.x-k8s.io/v1alpha4
-  networking:
-    apiServerAddress: "0.0.0.0"   # Change this to your EC2 private IP (run "hostname -I" to check or from your EC2 dashboard)
-    apiServerPort: 33893
-  nodes:
-    - role: control-plane
-      extraPortMappings:
-      - containerPort: 30080
-        hostPort: 30080
+kind: Cluster
+
+apiVersion: kind.x-k8s.io/v1alpha4
+
+networking:
+  apiServerAddress: "0.0.0.0"
+  apiServerPort: 33893
+
+nodes:
+
+  # ----------------------------------------
+  # Control Plane
+  # ----------------------------------------
+  - role: control-plane
+
+    image: kindest/node:v1.33.1
+
+    extraPortMappings:
+
+      # Frontend NodePort
+      - containerPort: 30000
+        hostPort: 30000
         protocol: TCP
-      image: kindest/node:v1.33.1
-    - role: worker
-      image: kindest/node:v1.33.1
+
+      # Backend NodePort
+      - containerPort: 30001
+        hostPort: 30001
+        protocol: TCP
+
+  # ----------------------------------------
+  # Worker Node
+  # ----------------------------------------
+  - role: worker
+
+    image: kindest/node:v1.33.1
