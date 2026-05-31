@@ -42,6 +42,54 @@ npm start
 ```
 
 ---
+## Architecture Diagram 
+                    ┌─────────────────────┐
+                    │     Developer       │
+                    │   Push Code to Git  │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │      GitHub Repo    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                 ┌────────────────────────────┐
+                 │      GitHub Actions        │
+                 │                            │
+                 │ 1. Checkout Code          │
+                 │ 2. Install Dependencies   │
+                 │ 3. SonarQube Scan         │
+                 │ 4. Trivy Scan            │
+                 │ 5. Build Docker Images   │
+                 │ 6. Push Images           │
+                 └──────────┬────────────────┘
+                            │
+                            ▼
+                 ┌───────────────────────────┐
+                 │ Docker Hub / GHCR         │
+                 │ Container Registry        │
+                 └──────────┬────────────────┘
+                            │
+                            ▼
+         ┌───────────────────────────────────────────┐
+         │            KIND K8s Cluster               │
+         │                                           │
+         │  ┌─────────────────────────────────────┐  │
+         │  │ Frontend Deployment (React)         │  │
+         │  └──────────────┬──────────────────────┘  │
+         │                 │ Service                │
+         │                 ▼                        │
+         │  ┌─────────────────────────────────────┐  │
+         │  │ Backend Deployment (Node.js)        │  │
+         │  └──────────────┬──────────────────────┘  │
+         │                 │ Service                │
+         │                 ▼                        │
+         │  ┌─────────────────────────────────────┐  │
+         │  │ MongoDB Deployment + PVC            │  │
+         │  └─────────────────────────────────────┘  │
+         │                                           │
+         └───────────────────────────────────────────┘
 
 ## 📦 Dockerized Setup (Recommended for Production)
 ### Run everything using Docker Compose:
